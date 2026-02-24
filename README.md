@@ -17,8 +17,12 @@ limitations under the License.
 -->
 <h1>NVIDIA AI-Q Blueprint</h1>
 
+> **IMPORTANT**
+>
+> **Active Development Branch**
+> You are viewing the **`develop`** branch. This branch contains the latest features and experimental updates. For the most stable enterprise-ready version, please switch to the [main branch](https://github.com/NVIDIA-AI-Blueprints/aiq/tree/main).
 
-## Table of Contents <!-- omit in toc -->
+## Table of Contents 
 - [Overview](#overview)
 - [Software Components](#software-components)
 - [Target Audience](#target-audience)
@@ -96,12 +100,13 @@ This project is for:
 If these optional API keys are not provided, the agent continues to operate without the corresponding search capabilities. Refer to [Obtain API Keys](#obtain-api-keys) for details.
 
 ## Hardware Requirements
+
 Generalized minimum requirements.
 
 **Local Development**
 - Typical developer machine for AI-Q workflow (no GPU required)
 - Llamaindex (no GPU required)
-- Self / Remote Hosted Models 
+- Self / Remote Hosted Models
 
 **Self Hosted**
 - Typical server for AI-Q workflow (no GPU required)
@@ -176,11 +181,13 @@ uv pip install -e "./sources/knowledge_layer[llamaindex,foundational_rag]"
 
 ### Obtain API Keys
 
-| API | Environment Variable | Purpose | Required |
-|-----|---------------------|---------|----------|
-| NVIDIA API | `NVIDIA_API_KEY` | LLM inference through NIM | Yes |
-| Tavily | `TAVILY_API_KEY` | Web search | No (if not specified, agent continues without web search) |
-| Serper | `SERPER_API_KEY` | Academic paper search | No (if not specified, agent continues without paper search) |
+
+| API        | Environment Variable | Purpose                   | Required                                                    |
+| ---------- | -------------------- | ------------------------- | ----------------------------------------------------------- |
+| NVIDIA API | `NVIDIA_API_KEY`     | LLM inference through NIM | Yes                                                         |
+| Tavily     | `TAVILY_API_KEY`     | Web search                | No (if not specified, agent continues without web search)   |
+| Serper     | `SERPER_API_KEY`     | Academic paper search     | No (if not specified, agent continues without paper search) |
+
 
 #### Obtain an NVIDIA API Key
 
@@ -205,6 +212,7 @@ Create a `.env` file in `deploy/` directory:
 ```bash
 cp deploy/.env.example deploy/.env
 ```
+
 Replace your API keys.
 
 > **Note:** If you do not want to use paper search, follow the steps in the [Customization guide](docs/source/customization/tools-and-sources.md#disabling-a-tool) to disable it.
@@ -230,7 +238,6 @@ source .venv/bin/activate
 # Or run directly with the NeMo Agent Toolkit CLI
 nat run --config_file configs/config_cli_default.yml
 ```
-
 
 The CLI frontend source is in `frontends/cli/`.
 
@@ -302,7 +309,6 @@ dotenv -f deploy/.env run nat eval --config_file frontends/benchmarks/deepresear
 For detailed benchmark documentation, refer to:
 - [Deep Research Bench README](frontends/benchmarks/deepresearch_bench/README.md)
 - [FreshQA README](frontends/benchmarks/freshqa/README.md)
-
 
 ## Development
 
