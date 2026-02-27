@@ -56,6 +56,7 @@ export type ErrorCode =
   | 'agent.response_failed'
   | 'agent.response_interrupted'
   | 'agent.deep_research_failed'
+  | 'agent.deep_research_load_failed'
   // System errors
   | 'system.unknown'
 

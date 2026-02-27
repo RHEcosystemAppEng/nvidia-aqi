@@ -77,6 +77,11 @@ export const ERROR_REGISTRY: Record<ErrorCode, ErrorMeta> = {
     title: 'Deep Research Failed',
     defaultMessage: 'The deep research process encountered an error.',
   },
+  'agent.deep_research_load_failed': {
+    status: 'error',
+    title: 'Research Data Unavailable',
+    defaultMessage: 'Unable to load research data. The job may have expired or been deleted.',
+  },
 
   // ============================================================
   // System Errors
