@@ -41,11 +41,11 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.ngcApiSecret.name }}
                   key: NVIDIA_API_KEY
-            # - name: NEMOTRON_API_KEY
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: {{ .Values.ngcApiSecret.name }}
-            #       key: NVIDIA_API_KEY
+            - name: NEMOTRON_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.ngcApiSecret.name }}
+                  key: NVIDIA_API_KEY
             - name: TAVILY_API_KEY
               valueFrom:
                 secretKeyRef:

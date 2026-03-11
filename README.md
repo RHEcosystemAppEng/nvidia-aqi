@@ -23,6 +23,7 @@ The AI-Q NVIDIA Research Assistant blueprint allows you to create a deep researc
       - [Helm](#helm)
       - [Running with hosted NVIDIA NIM Microservices](#running-with-hosted-nvidia-nim-microservices)
     - [API Keys](#api-keys)
+  - [OpenShift Deployment](#openshift-deployment)
   - [Next Steps](#next-steps)
   - [License](#license)
   - [Security Considerations](#security-considerations)
@@ -80,7 +81,8 @@ Ubuntu 22.04
 
 [Docker Compose](docs/get-started/get-started-docker-compose.md)  
 [NVIDIA AI Workbench](deploy/workbench/README.md#get-started)  
-[Helm](docs/get-started/get-started-helm.md)
+[Helm](docs/get-started/get-started-helm.md)  
+[OpenShift](docs/deploy-openshift.md)
 
 ### Drivers
 
@@ -123,6 +125,19 @@ This blueprint can be run entirely with hosted NVIDIA NIM Microservices, see [ht
 - NVIDIA [API catalog](https://build.nvidia.com/) or [NGC](https://org.ngc.nvidia.com/setup/personal-keys) API Keys for container download and access to hosted NVIDIA NIM Microservices
 - [TAVILY API Key](https://tavily.com) for optional web search
 
+
+## OpenShift Deployment
+
+**Ideal for:** Production deployments on Red Hat OpenShift and OpenShift AI (RHOAI) clusters.
+
+Deploying the AI-Q Research Assistant on OpenShift requires additional configuration to handle security context constraints, filesystem permissions, GPU scheduling, and service networking. A deployment script and OpenShift-specific Helm value overrides are provided that automate all adaptations — no manual post-deploy patching is required.
+
+This deployment was validated with **7 GPUs** (Llama 3.1 8B for instruction-following, Nemotron 49B via hosted API for reasoning, 4 nv-ingest GPU models for document processing, plus embedding and reranking NIMs). See the deployment guide for full hardware details and minimum requirements.
+
+- [docs/deploy-openshift.md](docs/deploy-openshift.md): Full deployment guide with OpenShift-specific challenges and solutions.
+- [deploy/helm/deploy-openshift.sh](deploy/helm/deploy-openshift.sh): Automated deployment script (creates namespaces, secrets, SCCs, deploys RAG Blueprint and AIRA via Helm, applies all post-deploy patches).
+- [deploy/helm/values-openshift.yaml](deploy/helm/values-openshift.yaml): AIRA Helm value overrides for OpenShift compatibility.
+- [deploy/helm/rag-values-openshift.yaml](deploy/helm/rag-values-openshift.yaml): RAG Blueprint Helm value overrides for OpenShift compatibility.
 
 ## Next Steps
 

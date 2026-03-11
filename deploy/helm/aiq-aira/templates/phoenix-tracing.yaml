@@ -22,6 +22,9 @@ spec:
         - name: phoenix
           image: "{{ .Values.phoenix.image.repository }}:{{ .Values.phoenix.image.tag }}"
           imagePullPolicy: {{ .Values.phoenix.image.pullPolicy }}
+          env:
+            - name: PHOENIX_WORKING_DIR
+              value: /tmp/.phoenix
           ports:
             - name: ui-otlp-http
               containerPort: 6006

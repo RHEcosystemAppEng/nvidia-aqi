@@ -1,0 +1,80 @@
+# OpenShift-specific value overrides for the AIRA Helm chart.
+# Used by deploy-openshift.sh. Can also be used standalone:
+#
+#   helm install aira deploy/helm/aiq-aira/ \
+#     -n <aira-namespace> \
+#     -f deploy/helm/values-openshift.yaml
+#
+# See docs/deploy-openshift.md for full documentation.
+
+# --- Secrets (pre-created by deploy script, don't let Helm create them) ---
+imagePullSecret:
+  name: "ngc-secret"
+  create: false
+
+ngcApiSecret:
+  name: "ngc-api"
+  create: false
+
+tavilyApiSecret:
+  name: "tavily-secret"
+  create: false
+
+# --- Backend service (upstream bug: type and targetPort are undefined) ---
+service:
+  type: ClusterIP
+  port: 3838
+  targetPort: 3838
+
+# --- Backend environment variables ---
+# AIRA_HOSTED_NIMS must be "false" — see Challenge 5 in docs/deploy-openshift.md.
+# The config.yml uses env var substitution for all model URLs.
+backendEnvVars:
+  INSTRUCT_MODEL_NAME: "meta/llama-3.1-8b-instruct"
+  INSTRUCT_MODEL_TEMP: "0.0"
+  INSTRUCT_MAX_TOKENS: "20000"
+  INSTRUCT_BASE_URL: "http://instruct-llm:8000/v1"
+  NEMOTRON_MODEL_NAME: "nvidia/llama-3.3-nemotron-super-49b-v1.5"
+  NEMOTRON_MODEL_TEMP: "0.5"
+  NEMOTRON_MAX_TOKENS: "5000"
+  NEMOTRON_BASE_URL: "https://integrate.api.nvidia.com/v1"
+  AIRA_HOSTED_NIMS: "false"
+  AIRA_APPLY_GUARDRAIL: "false"
+  # RAG URLs — overridden by deploy script via --set to match your RAG namespace.
+  RAG_SERVER_URL: "http://rag-server.<rag-namespace>.svc.cluster.local:8081"
+  RAG_INGEST_URL: "http://ingestor-server.<rag-namespace>.svc.cluster.local:8082"
+
+# --- Local NIM LLM (Llama 3.1 8B — 1 GPU) ---
+nim-llm:
+  enabled: true
+  service:
+    name: "instruct-llm"
+  image:
+    repository: nvcr.io/nim/meta/llama-3.1-8b-instruct
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  resources:
+    limits:
+      nvidia.com/gpu: 1
+    requests:
+      nvidia.com/gpu: 1
+  model:
+    ngcAPIKey: ""
+    name: "meta/llama-3.1-8b-instruct"
+
+# --- Frontend: ClusterIP instead of NodePort (exposed via OpenShift Route) ---
+frontend:
+  enabled: true
+  service:
+    type: ClusterIP
+    port: 3000
+    targetPort: 3000
+  image:
+    repository: nvcr.io/nvidia/blueprint/aira-frontend
+    tag: v1.2.0
+    pullPolicy: Always
+  replicaCount: 1
+
+# --- Phoenix tracing (works as-is with template patch) ---
+phoenix:
+  enabled: true
