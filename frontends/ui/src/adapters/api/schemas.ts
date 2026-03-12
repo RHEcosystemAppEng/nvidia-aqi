@@ -26,7 +26,6 @@ export const ChatCompletionRequestSchema = z.object({
   temperature: z.number().optional(),
   max_tokens: z.number().optional(),
   stream: z.boolean().optional(),
-  workflow_id: z.string().optional(),
   session_id: z.string().optional(),
 })
 
@@ -256,7 +255,6 @@ export const NATIncomingMessageSchema = z.discriminatedUnion('type', [
 export const WebSocketConnectMessageSchema = z.object({
   type: z.literal('connect'),
   session_id: z.string(),
-  workflow_id: z.string(),
   /** Auth token for backend authentication */
   auth_token: z.string().optional(),
 })

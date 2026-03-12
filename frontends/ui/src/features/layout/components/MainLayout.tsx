@@ -27,6 +27,7 @@ import { ResearchPanel } from './ResearchPanel'
 import { DataSourcesPanel } from './DataSourcesPanel'
 import { SettingsPanel } from './SettingsPanel'
 import { useChatStore, useDeepResearch, NoSourcesBanner } from '@/features/chat'
+import { hasActiveDeepResearchJob } from '@/features/chat/lib/session-activity'
 import { useLayoutStore } from '../store'
 import { useSessionUrl } from '@/hooks/use-session-url'
 
@@ -45,8 +46,6 @@ interface MainLayoutProps {
   onSignIn?: () => void
   /** Callback when sign out is clicked */
   onSignOut?: () => void
-  /** Workflow ID for the backend API */
-  workflowId?: string
 }
 
 /**
@@ -60,7 +59,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
   user,
   onSignIn,
   onSignOut,
-  workflowId,
 }) => {
   const {
     currentConversation,
@@ -125,17 +123,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
 
   // Convert conversations to session format for sidebar
   const sessions = userConversations.map((conv) => {
-    // Check if this conversation has an active deep research job
-    // Look at the last agent_response message with a deepResearchJobId
-    const lastDeepResearchMessage = [...conv.messages]
-      .reverse()
-      .find((m) => m.messageType === 'agent_response' && m.deepResearchJobId)
-
-    const hasActiveJob =
-      lastDeepResearchMessage?.deepResearchJobId &&
-      (lastDeepResearchMessage.deepResearchJobStatus === 'submitted' ||
-       lastDeepResearchMessage.deepResearchJobStatus === 'running' ||
-       lastDeepResearchMessage.isDeepResearchActive === true)
+    const hasActiveJob = hasActiveDeepResearchJob(conv.messages)
 
     return {
       id: conv.id,
@@ -176,7 +164,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
           {/* Input Area - Fixed at bottom of chat */}
           {/* Using WebSocket mode for full HITL (human-in-the-loop) support */}
           <InputArea
-            workflowId={workflowId}
             isAuthenticated={isAuthenticated}
             connectionMode="websocket"
           />

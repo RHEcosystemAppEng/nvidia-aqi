@@ -39,6 +39,7 @@ import {
   clearDeepResearchSession,
   clearAllDeepResearchSessions,
 } from './lib/deep-research-session-storage'
+import { isUnavailableDeepResearchJobError } from './lib/deep-research-errors'
 import { hasActiveDeepResearchJob } from './lib/session-activity'
 import {
   logStorageWrite,
@@ -2060,10 +2061,20 @@ export const useChatStore = create<ChatStore>()(
             }
           } catch (error) {
             console.warn('Failed to reconnect to active job:', error)
-            // Mark as inactive to prevent retry loops
-            get().patchConversationMessage(conversationId, activeJobMessage.id, {
-              isDeepResearchActive: false,
-            })
+            if (isUnavailableDeepResearchJobError(error)) {
+              clearDeepResearchSession(jobId)
+              get().patchConversationMessage(conversationId, activeJobMessage.id, {
+                deepResearchJobStatus: 'failure',
+                isDeepResearchActive: false,
+                showViewReport: Boolean(activeJobMessage.reportContent?.trim()),
+              })
+              get().addDeepResearchBanner('failure', jobId, conversationId)
+            } else {
+              // Mark as inactive to prevent retry loops
+              get().patchConversationMessage(conversationId, activeJobMessage.id, {
+                isDeepResearchActive: false,
+              })
+            }
           }
 
         },
@@ -2073,6 +2084,38 @@ export const useChatStore = create<ChatStore>()(
           if (!currentConversation) return
 
           const conversationId = currentConversation.id
+          const syncTrackingMessageToTerminalState = (
+            jobId: string,
+            terminalStatus: DeepResearchJobStatus
+          ): void => {
+            const conversation = get().conversations.find((c) => c.id === conversationId)
+            if (!conversation) return
+
+            const trackingMessage = [...conversation.messages]
+              .reverse()
+              .find(
+                (m) => m.messageType === 'agent_response' && m.deepResearchJobId === jobId
+              )
+
+            if (!trackingMessage?.id) return
+
+            const hasPartialReport = Boolean(trackingMessage.reportContent?.trim())
+            get().patchConversationMessage(conversationId, trackingMessage.id, {
+              deepResearchJobStatus: terminalStatus,
+              isDeepResearchActive: false,
+              showViewReport: terminalStatus === 'success' || hasPartialReport,
+            })
+          }
+          const bannerTypeToTerminalStatus = (
+            bannerType: DeepResearchBannerType | undefined
+          ): DeepResearchJobStatus => {
+            // Preserve the distinction between explicit user cancellation and
+            // terminal failures such as expiry/deletion. Cancelled jobs map to
+            // the interrupted job status; backend lookup failures map to failure.
+            if (bannerType === 'success') return 'success'
+            if (bannerType === 'cancelled') return 'interrupted'
+            return 'failure'
+          }
 
           const startingBanners = currentConversation.messages.filter(
             (m) =>
@@ -2089,7 +2132,7 @@ export const useChatStore = create<ChatStore>()(
           for (const banner of startingBanners) {
             const bannerJobId = banner.deepResearchBannerData!.jobId
 
-            const hasTerminalBanner = currentConversation.messages.some(
+            const matchingTerminalBanner = currentConversation.messages.find(
               (m) =>
                 m.messageType === 'deep_research_banner' &&
                 m.deepResearchBannerData?.jobId === bannerJobId &&
@@ -2099,7 +2142,11 @@ export const useChatStore = create<ChatStore>()(
                 )
             )
 
-            if (hasTerminalBanner) {
+            if (matchingTerminalBanner) {
+              const terminalStatus = bannerTypeToTerminalStatus(
+                matchingTerminalBanner.deepResearchBannerData?.bannerType
+              )
+              syncTrackingMessageToTerminalState(bannerJobId, terminalStatus)
               orphanedIds.push(banner.id)
             } else {
               needsCheck.push({ bannerId: banner.id, jobId: bannerJobId })
@@ -2146,13 +2193,19 @@ export const useChatStore = create<ChatStore>()(
                   const statusResponse = await getJobStatus(jobId)
                   const terminalStatuses = ['success', 'failure', 'interrupted']
                   if (terminalStatuses.includes(statusResponse.status)) {
+                    syncTrackingMessageToTerminalState(jobId, statusResponse.status)
                     const terminalType: DeepResearchBannerType =
                       statusResponse.status === 'success' ? 'success' : 'failure'
                     // addDeepResearchBanner removes the starting banner and adds the terminal one
                     get().addDeepResearchBanner(terminalType, jobId, conversationId)
                   }
-                } catch {
-                  // Individual job check failed — leave banner as-is
+                } catch (error) {
+                  if (isUnavailableDeepResearchJobError(error)) {
+                    clearDeepResearchSession(jobId)
+                    syncTrackingMessageToTerminalState(jobId, 'failure')
+                    get().addDeepResearchBanner('failure', jobId, conversationId)
+                  }
+                  // Other job check failures are likely transient — leave banner as-is
                 }
               }
             } catch {

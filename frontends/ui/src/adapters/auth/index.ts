@@ -4,12 +4,9 @@
 /**
  * Auth Adapters
  *
- * Re-exports all authentication-related functionality for use in features.
- * Features should import from '@/adapters/auth' only.
+ * Client-safe authentication exports for use in features.
+ * Server-only auth config must be imported from '@/adapters/auth/config'.
  */
-
-// Configuration
-export { authOptions, validateAuthEnv, isAuthRequired, shouldUseSecureCookies } from './config'
 
 // Session hooks (client-side)
 export { useAuth } from './session'

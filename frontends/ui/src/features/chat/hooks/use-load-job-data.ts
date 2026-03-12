@@ -31,6 +31,7 @@ import {
   type TodoItem,
 } from '@/adapters/api'
 import { useChatStore } from '../store'
+import { isUnavailableDeepResearchJobError } from '../lib/deep-research-errors'
 import { useAuth } from '@/adapters/auth'
 import { useLayoutStore } from '@/features/layout/store'
 
@@ -100,7 +101,7 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
   const [error, setError] = useState<string | null>(null)
   const clientRef = useRef<DeepResearchClient | null>(null)
 
-  const { accessToken } = useAuth()
+  const { idToken } = useAuth()
   const {
     setReportContent,
     addDeepResearchToolCall,
@@ -113,6 +114,8 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
     addErrorCard,
     completeDeepResearch,
     setStreaming,
+    patchConversationMessage,
+    addDeepResearchBanner,
   } = useChatStore()
 
   const { openRightPanel, setResearchPanelTab } = useLayoutStore()
@@ -121,12 +124,47 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
     setError(null)
   }, [])
 
+  const syncMissingJobToFailureState = useCallback(
+    (jobId: string): void => {
+      const state = useChatStore.getState()
+      const conversation = state.currentConversation
+      if (!conversation) return
+
+      const trackingMessage = [...conversation.messages]
+        .reverse()
+        .find((m) => m.messageType === 'agent_response' && m.deepResearchJobId === jobId)
+
+      if (trackingMessage?.id) {
+        const hasPartialReport = Boolean(
+          trackingMessage.reportContent?.trim() || trackingMessage.showViewReport
+        )
+        patchConversationMessage(conversation.id, trackingMessage.id, {
+          deepResearchJobStatus: 'failure',
+          isDeepResearchActive: false,
+          showViewReport: hasPartialReport,
+        })
+      }
+
+      const hasTerminalBanner = conversation.messages.some(
+        (m) =>
+          m.messageType === 'deep_research_banner' &&
+          m.deepResearchBannerData?.jobId === jobId &&
+          ['success', 'failure', 'cancelled'].includes(m.deepResearchBannerData?.bannerType || '')
+      )
+
+      if (!hasTerminalBanner) {
+        addDeepResearchBanner('failure', jobId, conversation.id)
+      }
+    },
+    [patchConversationMessage, addDeepResearchBanner]
+  )
+
   /**
    * Load job data using REST API (report only)
    */
   const _loadReportOnly = useCallback(
     async (jobId: string): Promise<boolean> => {
-      const response = await getJobReport(jobId, accessToken || undefined)
+      const response = await getJobReport(jobId, idToken || undefined)
 
       if (response.has_report && response.report) {
         setReportContent(response.report)
@@ -135,7 +173,7 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
 
       return false
     },
-    [accessToken, setReportContent]
+    [idToken, setReportContent]
   )
 
   /**
@@ -145,7 +183,7 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
   const loadJobState = useCallback(
     async (jobId: string): Promise<void> => {
       try {
-        const stateResponse = await getJobState(jobId, accessToken || undefined)
+        const stateResponse = await getJobState(jobId, idToken || undefined)
 
         if (stateResponse.has_state && stateResponse.artifacts) {
           const { tools, outputs } = stateResponse.artifacts
@@ -171,7 +209,7 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
         console.warn('Failed to load job state:', stateError)
       }
     },
-    [accessToken, addDeepResearchToolCall, completeDeepResearchToolCall, setReportContent]
+    [idToken, addDeepResearchToolCall, completeDeepResearchToolCall, setReportContent]
   )
 
   /**
@@ -181,7 +219,7 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
   const loadJobDataFast = useCallback(
     async (jobId: string): Promise<void> => {
       const [reportResult] = await Promise.allSettled([
-        getJobReport(jobId, accessToken || undefined),
+        getJobReport(jobId, idToken || undefined),
         loadJobState(jobId),
       ])
 
@@ -189,7 +227,7 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
         setReportContent(reportResult.value.report)
       }
     },
-    [accessToken, loadJobState, setReportContent]
+    [idToken, loadJobState, setReportContent]
   )
 
   /**
@@ -298,7 +336,7 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
 
         const client = createDeepResearchClient({
           jobId,
-          authToken: accessToken || undefined,
+          authToken: idToken || undefined,
           callbacks: {
             onStreamStart: () => {
               setCurrentStatus('researching')
@@ -429,7 +467,7 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
         client.connect()
       })
     },
-    [accessToken, setCurrentStatus]
+    [idToken, setCurrentStatus]
   )
 
   /**
@@ -464,7 +502,7 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
       setError(null)
 
       try {
-        const statusResponse = await getJobStatus(jobId, accessToken || undefined)
+        const statusResponse = await getJobStatus(jobId, idToken || undefined)
         const jobStatus = statusResponse.status
 
         if (
@@ -499,6 +537,9 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load job data'
         setError(errorMessage)
         console.error('Failed to load job data:', err)
+        if (isUnavailableDeepResearchJobError(err)) {
+          syncMissingJobToFailureState(jobId)
+        }
         addErrorCard('agent.deep_research_load_failed', errorMessage)
         stopAllDeepResearchSpinners()
         completeDeepResearch()
@@ -508,7 +549,7 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
       }
     },
     [
-      accessToken,
+      idToken,
       clearDeepResearch,
       loadJobDataFast,
       streamFullJob,
@@ -520,6 +561,7 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
       addErrorCard,
       completeDeepResearch,
       setStreaming,
+      syncMissingJobToFailureState,
     ]
   )
 
@@ -565,7 +607,7 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
       setError(null)
 
       try {
-        const statusResponse = await getJobStatus(jobId, accessToken || undefined)
+        const statusResponse = await getJobStatus(jobId, idToken || undefined)
         const jobStatus = statusResponse.status
 
         if (
@@ -592,6 +634,9 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load stream data'
         setError(errorMessage)
         console.error('Failed to load stream data:', err)
+        if (isUnavailableDeepResearchJobError(err)) {
+          syncMissingJobToFailureState(jobId)
+        }
         addErrorCard('agent.deep_research_load_failed', errorMessage)
         stopAllDeepResearchSpinners()
         completeDeepResearch()
@@ -600,7 +645,7 @@ export const useLoadJobData = (): UseLoadJobDataReturn => {
         setIsLoading(false)
       }
     },
-    [accessToken, clearDeepResearch, streamFullJob, stopAllDeepResearchSpinners, setStreamLoaded, setLoadedJobId, addErrorCard, completeDeepResearch, setStreaming]
+    [idToken, clearDeepResearch, streamFullJob, stopAllDeepResearchSpinners, setStreamLoaded, setLoadedJobId, syncMissingJobToFailureState, addErrorCard, completeDeepResearch, setStreaming]
   )
 
   return {
