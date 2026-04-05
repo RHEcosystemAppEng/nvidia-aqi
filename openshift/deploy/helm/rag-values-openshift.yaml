@@ -1,0 +1,102 @@
+# OpenShift-specific value overrides for the NVIDIA RAG Blueprint.
+# Used by deploy-openshift.sh. Can also be used standalone:
+#
+#   helm upgrade --install rag -n <rag-namespace> \
+#     https://helm.ngc.nvidia.com/nvidia/blueprint/charts/nvidia-blueprint-rag-v2.3.2.tgz \
+#     -f deploy/helm/rag-values-openshift.yaml \
+#     --set imagePullSecret.password=$NGC_API_KEY \
+#     --set ngcApiSecret.password=$NGC_API_KEY \
+#     --set ingestor-server.imagePullSecret.password=$NGC_API_KEY
+#
+# See docs/deploy-openshift.md for full documentation.
+
+imagePullSecret:
+  create: true
+  registry: "nvcr.io"
+  username: "$oauthtoken"
+
+ngcApiSecret:
+  create: true
+
+# --- RAG Server (no GPU, uses NVIDIA hosted API for LLM) ---
+image:
+  repository: nvcr.io/nvidia/blueprint/rag-server
+  tag: "2.3.0"
+
+envVars:
+  APP_LLM_SERVERURL: ""
+  APP_QUERYREWRITER_SERVERURL: ""
+  APP_FILTEREXPRESSIONGENERATOR_SERVERURL: ""
+  REFLECTION_LLM_SERVERURL: ""
+
+# --- Ingestor Server (no GPU, reduced memory from 25Gi default) ---
+ingestor-server:
+  enabled: true
+  imagePullSecret:
+    create: true
+    registry: "nvcr.io"
+    username: "$oauthtoken"
+  image:
+    repository: nvcr.io/nvidia/blueprint/ingestor-server
+    tag: "2.3.0"
+  persistence:
+    storageClass: "gp3-csi"  # Override: --set ingestor-server.persistence.storageClass=<your-sc>
+  resources:
+    limits:
+      memory: "8Gi"
+    requests:
+      memory: "4Gi"
+
+# --- NIM Embedding (1 GPU) ---
+# GPU tolerations are injected by deploy-openshift.sh via --set.
+nvidia-nim-llama-32-nv-embedqa-1b-v2:
+  enabled: true
+
+# --- NIM Reranking (1 GPU) ---
+nvidia-nim-llama-32-nv-rerankqa-1b-v2:
+  enabled: true
+
+# --- Disable RAG LLM (using NVIDIA hosted API) ---
+nim-llm:
+  enabled: false
+
+# --- Disable RAG frontend (AIRA has its own) ---
+frontend:
+  enabled: false
+
+# --- nv-ingest: ENABLED with GPU models for full document processing ---
+# Requires 4 GPUs for the models below + 0 GPU for the runtime orchestrator.
+nv-ingest:
+  enabled: true
+  # GPU models for document processing (1 GPU each)
+  nemoretriever_ocr_v1:
+    enabled: true
+  page_elements:
+    enabled: true
+  table_structure:
+    enabled: true
+  graphic_elements:
+    enabled: true
+  # Disable heavier models to fit GPU budget
+  nemotron_parse:
+    enabled: false
+  audio:
+    enabled: false
+  embedqa:
+    enabled: false
+
+# --- Disable observability stack ---
+eck-elasticsearch:
+  enabled: false
+
+serviceMonitor:
+  enabled: false
+
+opentelemetry-collector:
+  enabled: false
+
+zipkin:
+  enabled: false
+
+kube-prometheus-stack:
+  enabled: false
