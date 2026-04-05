@@ -44,6 +44,7 @@ limitations under the License.
   - [Available Benchmarks](#available-benchmarks)
   - [Running Evaluations](#running-evaluations)
 - [Development](#development)
+- [OpenShift Deployment](#openshift-deployment)
 - [Roadmap](#roadmap)
 - [Security Considerations](#security-considerations)
 - [License](#license)
@@ -368,6 +369,31 @@ For development, contribution, and documentation, refer to:
 - **[Knowledge Layer Setup](sources/knowledge_layer/KNOWLEDGE-LAYER-SETUP.md)**: RAG backends and document ingestion
 - **[Docs index](docs/README.md)**: Full documentation list and component docs
 - **[Changelog](docs/source/resources/changelog.md)**: Version history and changes
+
+## OpenShift Deployment
+
+AIRA v2.0 has been validated on Red Hat OpenShift. All OpenShift-specific files are isolated in the [`openshift/`](openshift/) directory — no upstream files are modified.
+
+### Two Knowledge Modes
+
+| Mode | GPUs (AIRA) | GPUs (RAG) | Description |
+|------|-------------|------------|-------------|
+| **LlamaIndex** (default) | 0 | 0 | Self-contained with local ChromaDB. All LLMs cloud-hosted. |
+| **FRAG** | 0 | 6 | Full NVIDIA RAG Blueprint with nv-ingest document processing pipeline. |
+
+### Quick Start
+
+```bash
+# LlamaIndex mode (0 GPUs)
+NGC_API_KEY=nvapi-... NVIDIA_API_KEY=nvapi-... AIRA_NAMESPACE=aira \
+  bash openshift/deploy/helm/deploy-openshift.sh
+
+# FRAG mode (6 GPUs for RAG Blueprint)
+NGC_API_KEY=nvapi-... NVIDIA_API_KEY=nvapi-... AIRA_NAMESPACE=aira KNOWLEDGE_MODE=frag \
+  bash openshift/deploy/helm/deploy-openshift.sh
+```
+
+For the full deployment guide, hardware requirements, and troubleshooting, see [`openshift/docs/deploy-openshift.md`](openshift/docs/deploy-openshift.md).
 
 ## Roadmap
 

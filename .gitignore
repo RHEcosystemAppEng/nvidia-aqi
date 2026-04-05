@@ -94,3 +94,7 @@ docs/notebooks/config_*.yml
 # Local images (not committed) for notebooks
 docs/notebooks/local_assets/
 /config_*.yml
+
+# Helm generated artifacts (rebuilt by deploy scripts at runtime)
+deploy/helm/deployment-k8s/Chart.lock
+deploy/helm/deployment-k8s/charts/
