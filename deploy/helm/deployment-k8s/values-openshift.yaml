@@ -1,0 +1,42 @@
+# OpenShift / OKD value overrides for the AIQ Helm chart.
+#
+# Usage:
+#   helm install aiq deploy/helm/deployment-k8s \
+#     -f deploy/helm/deployment-k8s/values-openshift.yaml \
+#     --namespace <your-project>
+#
+# What this overlay does:
+#   - Enables OpenShift Route creation (instead of Ingress)
+#   - Disables Ingress on all apps (Routes replace them)
+#   - Clears restrictive podSecurityContext (OpenShift manages via SCCs)
+#   - Configures NGC image pull secrets
+
+aiq:
+  openshift:
+    enabled: true
+
+  project:
+    orientation: external
+
+  apps:
+    backend:
+      imagePullSecrets:
+        - name: ngc-secret
+      ingress:
+        enabled: false
+      podSecurityContext: null
+
+    frontend:
+      imagePullSecrets:
+        - name: ngc-secret
+      ingress:
+        enabled: false
+      route:
+        enabled: true
+        tls:
+          termination: edge
+          insecureEdgeTerminationPolicy: Redirect
+      podSecurityContext: null
+
+    postgres:
+      podSecurityContext: null

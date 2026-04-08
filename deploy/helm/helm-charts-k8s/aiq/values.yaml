@@ -6,6 +6,15 @@
 #   2. Deploy: helm install aiq deployment-k8s/stg/ -f my-values.yaml
 
 # ==========================================
+# OPTIONAL: OpenShift Configuration
+# ==========================================
+# Enable to deploy on OpenShift / OKD clusters.
+# When enabled the chart will create Routes instead of Ingresses.
+# Use with the values-openshift.yaml overlay for the full set of overrides.
+openshift:
+  enabled: false
+
+# ==========================================
 # REQUIRED: Project Configuration
 # ==========================================
 project:

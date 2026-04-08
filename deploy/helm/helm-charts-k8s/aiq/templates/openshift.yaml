@@ -1,0 +1,66 @@
+{{- $openshift := .Values.openshift | default dict }}
+{{- if $openshift.enabled }}
+{{- range $appName, $appConfig := .Values.apps }}
+{{- if $appConfig.enabled }}
+{{- $appRoute := $appConfig.route | default dict }}
+{{- $appIngress := $appConfig.ingress | default dict }}
+{{- /* Create a Route when route.enabled is explicitly true, or fall back to ingress.enabled (auto-convert) */ -}}
+{{- $routeEnabled := false }}
+{{- if and (hasKey $appRoute "enabled") $appRoute.enabled }}
+{{- $routeEnabled = true }}
+{{- else }}
+{{- if eq (kindOf $appIngress) "bool" }}
+{{- $routeEnabled = $appIngress }}
+{{- else if hasKey $appIngress "enabled" }}
+{{- $routeEnabled = $appIngress.enabled }}
+{{- end }}
+{{- end }}
+{{- if $routeEnabled }}
+{{- $svc := $appConfig.service | default dict }}
+{{- $tls := $appRoute.tls | default dict }}
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "aiq.appFullname" (list $ $appName) }}
+  namespace: {{ include "aiq.namespace" $ }}
+  labels:
+    {{- include "aiq.appLabels" (list $ $appName $appConfig) | nindent 4 }}
+  {{- with $appRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if and (hasKey $appRoute "host") $appRoute.host (ne $appRoute.host "localhost") }}
+  host: {{ $appRoute.host }}
+  {{- end }}
+  to:
+    kind: Service
+    name: {{ include "aiq.appFullname" (list $ $appName) }}
+    weight: 100
+  port:
+    targetPort: {{ $svc.targetPort | default $svc.port | default (include "aiq.appPort" (list $appConfig)) }}
+  {{- if $tls }}
+  tls:
+    termination: {{ $tls.termination | default "edge" }}
+    {{- with $tls.insecureEdgeTerminationPolicy }}
+    insecureEdgeTerminationPolicy: {{ . }}
+    {{- end }}
+    {{- with $tls.certificate }}
+    certificate: {{ . }}
+    {{- end }}
+    {{- with $tls.key }}
+    key: {{ . }}
+    {{- end }}
+    {{- with $tls.caCertificate }}
+    caCertificate: {{ . }}
+    {{- end }}
+    {{- with $tls.destinationCACertificate }}
+    destinationCACertificate: {{ . }}
+    {{- end }}
+  {{- end }}
+  wildcardPolicy: None
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
