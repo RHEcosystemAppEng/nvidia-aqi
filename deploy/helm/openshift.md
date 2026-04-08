@@ -27,16 +27,7 @@ oc create secret generic aiq-credentials \
   -n ns-aiq
 ```
 
-4. Granting the `anyuid` Security Context Constraints
-
-```bash
-oc adm policy add-scc-to-user anyuid -z default -n ns-aiq
-oc adm policy add-scc-to-user anyuid -z aiq-backend -n ns-aiq
-oc adm policy add-scc-to-user anyuid -z aiq-frontend -n ns-aiq
-oc adm policy add-scc-to-user anyuid -z aiq-postgres -n ns-aiq
-```
-
-5. Deploy the application
+4. Deploy the application
 
 ```bash
 helm dependency build deploy/helm/deployment-k8s
@@ -47,7 +38,7 @@ helm upgrade --install aiq deploy/helm/deployment-k8s \
   --wait --timeout 10m
 ```
 
-6. Verifing everything is healthy
+5. Verifying everything is healthy
 
 ```bash
 oc get pods -n ns-aiq
