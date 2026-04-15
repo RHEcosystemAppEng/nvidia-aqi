@@ -8,7 +8,7 @@
 - **NVIDIA API Key** — for hosted LLM inference on `integrate.api.nvidia.com`. Get one at https://build.nvidia.com (click "Get API Key" on any model page)
 - **Tavily API Key** (optional) — for web search functionality. Get a free key at https://tavily.com. Without it, web search queries will return empty results.
 
-> **Important:** The NGC API Key and NVIDIA API Key are **different keys** from different portals. Using the wrong key for `ngc-secret` will cause `ImagePullBackOff` errors.
+> **Important:** The NGC API Key and NVIDIA API Key are **different keys** from different portals. Using the wrong key for the NGC pull secret will cause `ImagePullBackOff` errors.
 
 ## 1. Login to OpenShift cluster
 
@@ -24,47 +24,33 @@ oc new-project ns-aiq
 
 > **Namespace / appname mapping:** The Helm chart derives the target namespace from `aiq.appname` (default: `aiq`) by prefixing `ns-`, resulting in `ns-aiq`. If you use a custom namespace, set `--set aiq.appname=<your-namespace> --set aiq.project.deploymentTarget=kind` at install time so the chart targets your namespace directly.
 
-## 3. Create secrets
-
-Export your API keys before running these commands:
+## 3. Export your API keys
 
 ```bash
 export NGC_API_KEY="<your NGC org key>"
 export NVIDIA_API_KEY="<your build.nvidia.com key>"
-export TAVILY_API_KEY="<your Tavily key>"   # optional
-```
-
-Create the secrets (safe to re-run — deletes existing secrets first):
-
-```bash
-oc delete secret ngc-secret -n ns-aiq --ignore-not-found
-oc create secret docker-registry ngc-secret \
-  --docker-server=nvcr.io \
-  --docker-username='$oauthtoken' \
-  --docker-password="$NGC_API_KEY" \
-  -n ns-aiq
-
-oc delete secret aiq-credentials -n ns-aiq --ignore-not-found
-oc create secret generic aiq-credentials \
-  --from-literal=NVIDIA_API_KEY="$NVIDIA_API_KEY" \
-  --from-literal=TAVILY_API_KEY="${TAVILY_API_KEY:-placeholder}" \
-  --from-literal=DB_USER_NAME="aiq" \
-  --from-literal=DB_USER_PASSWORD="aiq_dev" \
-  -n ns-aiq
+export TAVILY_API_KEY="<your Tavily key>"   # optional — web search won't work without it
 ```
 
 ## 4. Deploy the application
+
+The chart creates all required secrets (NGC image pull secret, API keys, DB credentials) automatically from the values you pass. No manual `oc create secret` commands are needed. Database credentials default to `aiq` / `aiq_dev` and can be overridden with `--set aiq.openshift.apiKeys.dbUserName=...` and `--set aiq.openshift.apiKeys.dbUserPassword=...`.
 
 ```bash
 helm dependency build deploy/helm/deployment-k8s
 
 helm upgrade --install aiq deploy/helm/deployment-k8s \
   -f deploy/helm/deployment-k8s/values-openshift.yaml \
+  --set aiq.openshift.ngcSecret.password="$NGC_API_KEY" \
+  --set aiq.openshift.apiKeys.nvidiaApiKey="$NVIDIA_API_KEY" \
+  --set aiq.openshift.apiKeys.tavilyApiKey="$TAVILY_API_KEY" \
   -n ns-aiq \
   --wait --timeout 10m
 ```
 
 > For a custom namespace, add: `--set aiq.appname=<your-namespace> --set aiq.project.deploymentTarget=kind`
+
+> **Already have secrets?** If `ngc-secret` or `aiq-api-keys` already exist in the namespace, the chart will skip creating them (uses `lookup` for idempotency). You can still create secrets manually before install if you prefer — just omit the corresponding `--set` flags.
 
 ## 5. Verify the deployment
 

@@ -3,17 +3,32 @@
 # Usage:
 #   helm install aiq deploy/helm/deployment-k8s \
 #     -f deploy/helm/deployment-k8s/values-openshift.yaml \
+#     --set aiq.openshift.ngcSecret.password="$NGC_API_KEY" \
+#     --set aiq.openshift.apiKeys.nvidiaApiKey="$NVIDIA_API_KEY" \
+#     --set aiq.openshift.apiKeys.tavilyApiKey="$TAVILY_API_KEY" \
 #     --namespace <your-project>
 #
 # What this overlay does:
 #   - Enables OpenShift Route creation (instead of Ingress)
+#   - Creates NGC image pull secret and API key secrets from values
+#   - Grants anyuid SCC to all app service accounts
 #   - Disables Ingress on all apps (Routes replace them)
 #   - Clears restrictive podSecurityContext (OpenShift manages via SCCs)
-#   - Configures NGC image pull secrets
 
 aiq:
   openshift:
     enabled: true
+
+    # NGC image pull secret — pass via --set or fill in directly.
+    # When set, the chart creates the ngc-secret automatically.
+    ngcSecret:
+      password: ""
+
+    # API keys — pass via --set to avoid storing secrets in files.
+    # Creates an aiq-api-keys Secret with these values.
+    apiKeys:
+      nvidiaApiKey: ""
+      tavilyApiKey: ""
 
   project:
     orientation: external
@@ -25,6 +40,13 @@ aiq:
       ingress:
         enabled: false
       podSecurityContext: null
+      securityContext: null
+      # Tolerations for GPU-tainted nodes (uncomment and adjust for your cluster).
+      # Only needed in FRAG mode when backend requires GPU access.
+      # tolerations:
+      #   - key: "nvidia.com/gpu"
+      #     operator: Exists
+      #     effect: NoSchedule
 
     frontend:
       imagePullSecrets:
@@ -37,6 +59,8 @@ aiq:
           termination: edge
           insecureEdgeTerminationPolicy: Redirect
       podSecurityContext: null
+      securityContext: null
 
     postgres:
       podSecurityContext: null
+      securityContext: null

@@ -87,4 +87,49 @@ subjects:
     namespace: {{ include "aiq.namespace" $ }}
 {{- end }}
 {{- end }}
+
+{{/*
+  NGC image pull secret — created from values so users don't need manual oc create.
+*/}}
+{{- $ngcSecret := $openshift.ngcSecret | default dict }}
+{{- if $ngcSecret.password }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ngc-secret
+  namespace: {{ include "aiq.namespace" $ }}
+  labels:
+    {{- include "aiq.labels" $ | nindent 4 }}
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: {{ printf `{"auths":{"nvcr.io":{"auth":"%s"}}}` (printf "$oauthtoken:%s" $ngcSecret.password | b64enc) | b64enc }}
+{{- end }}
+
+{{/*
+  Credentials secret — the chart's deployments mount {project.name}-credentials
+  via envFrom/secretKeyRef. This creates it with API keys and DB credentials.
+*/}}
+{{- $apiKeys := $openshift.apiKeys | default dict }}
+{{- $credentialName := printf "%s-credentials" $.Values.project.name }}
+{{- if or $apiKeys.nvidiaApiKey $apiKeys.tavilyApiKey }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $credentialName }}
+  namespace: {{ include "aiq.namespace" $ }}
+  labels:
+    {{- include "aiq.labels" $ | nindent 4 }}
+type: Opaque
+stringData:
+  {{- with $apiKeys.nvidiaApiKey }}
+  NVIDIA_API_KEY: {{ . | quote }}
+  {{- end }}
+  {{- with $apiKeys.tavilyApiKey }}
+  TAVILY_API_KEY: {{ . | quote }}
+  {{- end }}
+  DB_USER_NAME: {{ $apiKeys.dbUserName | default "aiq" | quote }}
+  DB_USER_PASSWORD: {{ $apiKeys.dbUserPassword | default "aiq_dev" | quote }}
+{{- end }}
 {{- end }}

@@ -238,12 +238,19 @@ spec:
           {{- toYaml . | nindent 8 }}
         {{- end }}
         {{- end }}
+        {{- if hasKey $appConfig "securityContext" }}
+        {{- if $appConfig.securityContext }}
+        securityContext:
+          {{- toYaml $appConfig.securityContext | nindent 10 }}
+        {{- end }}
+        {{- else }}
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
             - ALL
           readOnlyRootFilesystem: false
+        {{- end }}
       {{- with $appConfig.sidecars }}
       {{- toYaml . | nindent 6 }}
       {{- end }}

@@ -9,10 +9,22 @@
 # OPTIONAL: OpenShift Configuration
 # ==========================================
 # Enable to deploy on OpenShift / OKD clusters.
-# When enabled the chart will create Routes instead of Ingresses.
+# When enabled the chart will create Routes instead of Ingresses,
+# a RoleBinding for the anyuid SCC, and (optionally) NGC + API key secrets.
 # Use with the values-openshift.yaml overlay for the full set of overrides.
 openshift:
   enabled: false
+  # NGC image pull secret — set password to have the chart create ngc-secret automatically.
+  # If left empty, you must create the secret manually before install.
+  ngcSecret:
+    password: ""
+  # Credentials injected into the {project.name}-credentials Secret.
+  # This secret is auto-mounted on all pods via envFrom.
+  apiKeys:
+    nvidiaApiKey: ""
+    tavilyApiKey: ""
+    dbUserName: "aiq"
+    dbUserPassword: "aiq_dev"
 
 # ==========================================
 # REQUIRED: Project Configuration
