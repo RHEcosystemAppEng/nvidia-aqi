@@ -50,7 +50,7 @@ helm upgrade --install aiq deploy/helm/deployment-k8s \
 
 > For a custom namespace, add: `--set aiq.appname=<your-namespace> --set aiq.project.deploymentTarget=kind`
 
-> **Already have secrets?** If `ngc-secret` or `aiq-api-keys` already exist in the namespace, the chart will skip creating them (uses `lookup` for idempotency). You can still create secrets manually before install if you prefer — just omit the corresponding `--set` flags.
+> **Already have secrets?** If you prefer to create secrets manually before install, just omit the corresponding `--set` flags. On `helm upgrade`, Helm will update the secrets with the latest values.
 
 ## 5. Verify the deployment
 
@@ -76,7 +76,30 @@ oc logs -f deploy/aiq-backend -n ns-aiq -c backend
 | `aiq-frontend` | Web UI |
 | `aiq-postgres` | PostgreSQL for job state, checkpoints, and summaries |
 
-## 6. Uninstall
+## 6. FRAG mode (optional)
+
+The default deployment uses LlamaIndex mode — a self-contained knowledge backend with no GPUs or external services. To use Foundational RAG (FRAG) mode instead, you need a running [NVIDIA RAG Blueprint](https://github.com/NVIDIA-AI-Blueprints/rag) in a separate namespace (requires 6+ GPUs for the embedding, reranking, and LLM NIMs plus nv-ingest).
+
+Deploy the RAG Blueprint first (see the RAG chart's `values-openshift.yaml`), then install AIQ with the FRAG config pointing to its services:
+
+```bash
+RAG_NAMESPACE="<namespace where RAG Blueprint is deployed>"
+
+helm upgrade --install aiq deploy/helm/deployment-k8s \
+  -f deploy/helm/deployment-k8s/values-openshift.yaml \
+  --set aiq.openshift.ngcSecret.password="$NGC_API_KEY" \
+  --set aiq.openshift.apiKeys.nvidiaApiKey="$NVIDIA_API_KEY" \
+  --set aiq.openshift.apiKeys.tavilyApiKey="$TAVILY_API_KEY" \
+  --set aiq.apps.backend.env.CONFIG_FILE=configs/config_web_frag.yml \
+  --set aiq.apps.backend.env.RAG_SERVER_URL=http://rag-server.$RAG_NAMESPACE.svc.cluster.local:8081/v1 \
+  --set aiq.apps.backend.env.RAG_INGEST_URL=http://ingestor-server.$RAG_NAMESPACE.svc.cluster.local:8082/v1 \
+  -n ns-aiq \
+  --wait --timeout 10m
+```
+
+The only differences from the default install are the three additional `--set` flags that switch the config file and point to the RAG services. Everything else (secrets, Routes, SCC) works identically.
+
+## 7. Uninstall
 
 ```bash
 helm uninstall aiq -n ns-aiq
