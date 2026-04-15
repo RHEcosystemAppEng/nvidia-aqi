@@ -112,7 +112,7 @@ data:
 */}}
 {{- $apiKeys := $openshift.apiKeys | default dict }}
 {{- $credentialName := printf "%s-credentials" $.Values.project.name }}
-{{- if or $apiKeys.nvidiaApiKey $apiKeys.tavilyApiKey }}
+{{- if $openshift.enabled }}
 ---
 apiVersion: v1
 kind: Secret
